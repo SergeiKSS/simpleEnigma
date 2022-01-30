@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Enigma</title>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+        <script src="enigma.js"></script>
+        <link rel="stylesheet" href="main.css">
+    </head>
+
+    <body>
+        <h1>Enigma Simulator</h1>
+
+        <div class="enigma-section">
+            <div class="input-section">
+                <input class="input-text" id="enigma-input" type="text" placeholder="Input">
+            </div>
+
+            <div class="output-section">
+                <input class="output-text" id="enigma-output" type="text" placeholder="Output" readonly>
+            </div>
+        </div>
+
+        <div class="settings" id="settings-section">
+            <div class="settings-content">
+                <div class="settings-section">
+                    <h2>Rotors settings</h2>
+
+                    <div class="settings-subsection">
+                        <label><a href="https://en.wikipedia.org/wiki/Enigma_machine#Rotors">Rotor types</a></label>
+                        <select class="rotor-type-settings" id="rotor-type-left">
+                            <option value="I" selected>I</option>
+                            <option value="II" disabled>II</option>
+                            <option value="III" disabled>III</option>
+                            <option value="IV">IV</option>
+                            <option value="V">V</option>
+                        </select>
+
+                        <select class="rotor-type-settings" id="rotor-type-middle">
+                            <option value="I" disabled>I</option>
+                            <option value="II" selected>II</option>
+                            <option value="III" disabled>III</option>
+                            <option value="IV">IV</option>
+                            <option value="V">V</option>
+                        </select>
+
+                        <select class="rotor-type-settings" id="rotor-type-right">
+                            <option value="I" disabled>I</option>
+                            <option value="II" disabled>II</option>
+                            <option value="III" selected>III</option>
+                            <option value="IV">IV</option>
+                            <option value="V">V</option>
+                        </select>
+                    </div>
+                    <div class="settings-subsection">
+                        <label><a href="https://en.wikipedia.org/wiki/Enigma_rotor_details#Rotor_offset">Ground settings</a></label>
+                        <input class="rotor-settings" id="rotor-left-pos" type="text" value="A">
+                        <input class="rotor-settings" id="rotor-middle-pos" type="text" value="A">
+                        <input class="rotor-settings" id="rotor-right-pos" type="text" value="A">
+                    </div>
+                    <div class="settings-subsection">
+                        <label><a href="https://en.wikipedia.org/wiki/Enigma_rotor_details#Ring_setting">Ring settings</a></label>
+                        <input class="rotor-settings" id="ring-left-pos" type="text" value="A">
+                        <input class="rotor-settings" id="ring-middle-pos" type="text" value="A">
+                        <input class="rotor-settings" id="ring-right-pos" type="text" value="A">
+                    </div>
+                </div>
+                <div class="settings-section">
+                    <h2>Reflector settings</h2>
+
+                    <div class="settings-subsection">
+                        <label><a href="https://en.wikipedia.org/wiki/Enigma_machine#Reflector">Reflector type</a></label>
+                        <select class="reflector-settings" id="reflector-type">
+                            <option value="B">B</option>
+                            <option value="C">C</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script type="text/javascript">
+        $(function() {
+            let isAlphabeticChar = function(input) {
+                return /^[a-zA-Z]$/g.test(input);
+            };
+
+            let getRotorInstance = function(pos) {
+                let type = $('#rotor-type-' + pos).val();
+                let rotor;
+
+                if (type === 'I')
+                    rotor = new RotorI();
+                else if (type === 'II')
+                    rotor = new RotorII();
+                else if (type === 'III')
+                    rotor = new RotorIII();
+                else if (type === 'IV')
+                    rotor = new RotorIV();
+                else if (type === 'V')
+                    rotor = new RotorV();
+
+                return rotor;
+            }
+
+            let getReflectorInstance = function() {
+                let reflector;
+
+                if ($('#reflector-type').val() === 'B')
+                    reflector = new ReflectorB();
+                else if ($('#reflector-type').val() === 'C')
+                    reflector = new ReflectorC();
+
+                return reflector;
+            }
+
+            let encode = function(input) {
+                let machine = new Machine();
+
+                let rightRotor = getRotorInstance('right');
+                rightRotor.setInnerPosition($('#ring-right-pos').val());
+                rightRotor.setInitialPosition($('#rotor-right-pos').val());
+
+                let middleRotor = getRotorInstance('middle');
+                middleRotor.setInnerPosition($('#ring-middle-pos').val());
+                middleRotor.setInitialPosition($('#rotor-middle-pos').val());
+
+                let leftRotor = getRotorInstance('left');
+                leftRotor.setInnerPosition($('#ring-left-pos').val());
+                leftRotor.setInitialPosition($('#rotor-left-pos').val());
+
+                machine.setRotors(leftRotor, middleRotor, rightRotor);
+
+                let reflector = getReflectorInstance();
+                machine.setReflector(reflector);
+
+                return machine.encodeLetters(input);
+            };
+
+            let updateOutput = function() {
+                $('#enigma-output').val(encode($('#enigma-input').val()));
+            };
+
+            $('#enigma-input').keyup(function(e) {
+                input = $(this).val();
+                validInput = input.replace(/([^a-zA-Z]+)/gi, '').toUpperCase();
+                $(this).val(validInput);
+                updateOutput();
+            });
+
+            $('.rotor-settings').keydown(function(e) {
+                e.preventDefault();
+
+                letter = String.fromCharCode(e.keyCode).toUpperCase();
+
+                if (isAlphabeticChar(letter))
+                    $(this).val(letter);
+
+                updateOutput();
+            });
+
+            $('select[id^=rotor-type-]').change(function() {
+                var selected = [];
+                $('[id^=rotor-type-] option:selected').each(function() {
+                    selected.push($(this).val());
+                });
+
+                $('[id^=rotor-type-] option').each(function()
+                {
+                    if (!$(this).is(':selected'))
+                    {
+                        var shouldDisable = false;
+                        for (var i = 0; i < selected.length; i++)
+                        {
+                            if (selected[i] == $(this).val())
+                                shouldDisable = true;
+                        }
+
+                        $(this).css('text-decoration', '');
+                        $(this).removeAttr('disabled', 'disabled');
+
+                        if (shouldDisable) {
+                            $(this).css('text-decoration', 'line-through');
+                            $(this).attr('disabled', 'disabled');
+                        }
+                    }
+                });
+
+                updateOutput();
+            });
+
+            $('.reflector-settings').change(function() {
+                updateOutput();
+            });
+        });
+        </script>
+
+    </body>
+</html>
